@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- shortcut: công tắc thử lỗi ?off=trail,proud,... để tìm phần làm iPhone sập; xoá khi đã ổn định -->
+<script>try { const o = new URLSearchParams(location.search).get('off'); if (o) o.split(',').forEach(k => document.documentElement.classList.add('off-' + k.trim())); } catch (e) {}</script>
 <title>Cọ Xinh Studio — Góc lưu bút của ba mẹ</title>
 <meta name="description" content="Cọ Xinh Studio — xưởng vẽ cho bé 4–14 tuổi. Không dạy trẻ chép tranh mẫu, dạy trẻ kể câu chuyện của riêng mình bằng màu sắc.">
 <link rel="icon" type="image/svg+xml" href="logo/co-mark-luu-but.svg">
@@ -29,6 +31,8 @@ tailwind.config = { theme: { extend: {
   /* nền trang đổi màu theo từng khu (JS đặt --bg khi khu đó vào giữa màn hình) */
   /* --bg đổi tức thì; chỉ chuyển màu nền của body/header (chuyển --bg trên html bắt cả trang tính lại kiểu mỗi khung hình → giật) */
   :root { --bg: #FAF6F3; }
+  .off-trail #trail, .off-trail #brush, .off-proud #proud, .off-marquee #marquee, .off-splat .splat, .off-blob .blob, .off-grain .grain,
+  .off-sketch #sketch, .off-founder #hpin, .off-gallery #grid, .off-logo .brand, .off-logo #mark, .off-swipe .swipe, .off-wall #wall, .off-hero #collage { display: none !important; }
   html { scroll-behavior: smooth; overflow-x: clip; }
   body { overflow-x: clip; background: var(--bg); transition: background-color 1.1s ease; }
   body > header { transition: background-color 1.1s ease; }
@@ -112,7 +116,11 @@ tailwind.config = { theme: { extend: {
   .ehint { position: absolute; left: 0; right: 0; bottom: 5vh; text-align: center; opacity: calc(1 - var(--d, 0) * 3); }
   /* máy cảm ứng: tắt bớt hiệu ứng nặng chạy liên tục */
   @media (hover: none) {
-    .splat { animation: none; }
+    .splat { animation: none; filter: none; mix-blend-mode: normal; }   /* bộ lọc SVG + hoà trộn màu trên Safari iPhone rất tốn bộ nhớ */
+    .swipe path { filter: none; }
+    /* dải ảnh các bé: vuốt ngang tự nhiên thay vì dải 8800px chạy liên tục (iPhone dễ sập) */
+    #proudTrack { animation: none; width: auto; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 12px; }
+    #proudTrack > figure { scroll-snap-align: center; }
     .blob { display: none; }   /* mảng loang blur lớn ngốn bộ nhớ GPU, điện thoại dễ tự tải lại trang */
     .grain { mix-blend-mode: normal; }
     body > header.backdrop-blur { backdrop-filter: none; -webkit-backdrop-filter: none; }
@@ -1029,7 +1037,7 @@ $('#heroCap').textContent = `${ART[1].title} — ${ART[1].kid}`;
 // dải ảnh các bé cầm tranh: lặp 2 lần để chạy vòng liền mạch
 $('#proudTrack').innerHTML = (ART.map((a, i) => `<figure class="shrink-0 w-44 sm:w-52 bg-canvas-cream p-2 pb-3 border-[1.5px] border-espresso-ink/70 shadow-warm" style="rotate:${[-2, 1.5, -1, 2.2, -1.6][i % 5]}deg">
     <img src="img/${SM ? 'be-sm' : 'be'}/${a.id}.webp" alt="${a.kid ? 'Bé ' + a.kid : 'Một họa sĩ nhí'} với bức “${a.title}”" loading="lazy" width="750" height="1000" class="block w-full aspect-[3/4] object-cover">
-    <figcaption class="font-hand text-[12.5px] text-center mt-2">${a.kid || 'Họa sĩ nhí'}</figcaption></figure>`).join('')).repeat(2);
+    <figcaption class="font-hand text-[12.5px] text-center mt-2">${a.kid || 'Họa sĩ nhí'}</figcaption></figure>`).join('')).repeat(matchMedia('(hover: none)').matches ? 1 : 2);   // cảm ứng: không nhân đôi, vuốt ngang
 $('.eworld').insertAdjacentHTML('beforeend', ART.slice(0, 5).map((a, i) => `
   <div class="eframe" style="--x:${i % 2 ? 310 : -310}px; --z:${-260 - i * 430}px; --ry:${i % 2 ? -30 : 30}deg">${a.svg.replaceAll('pm-', 'pe-')}<b>${a.title}</b><small>${a.by}</small></div>`).join(''));
 // bảng pha màu: chấm của khu đang xem to lên, các bước đã qua được tô màu
