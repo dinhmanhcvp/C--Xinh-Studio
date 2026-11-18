@@ -950,6 +950,8 @@ const photo = (src, w, h, alt) => { const id = 'pm-' + pmN++, H = Math.round(400
       Array.from({ length: Math.ceil(H / 100) + 1 }, (_, i) => `<path class="pm" pathLength="1" style="--i:${i}" d="M${i % 2 ? 440 : -40} ${40 + i * 100}Q200 ${i % 2 ? 80 + i * 100 : i * 100} ${i % 2 ? -40 : 440} ${45 + i * 100}"/>`).join('')
     }</g></mask><image href="${src}" width="400" height="${H}" preserveAspectRatio="xMidYMid slice" mask="url(#${id})"/></svg>`; };
 
+// màn hẹp dùng ảnh thu nhỏ (img/*-sm): ảnh gốc giải nén tốn ~130MB, điện thoại hết bộ nhớ và tự tải lại trang
+const SM = matchMedia('(max-width: 767px)').matches;
 // Tranh thật của các bé (ảnh chụp từ Drive của xưởng, đã cắt phẳng & chỉnh màu -> img/tranh/).
 // cat = nhóm lọc theo họa sĩ nhí; note = lời nhắn của cô (cô sửa lại cho đúng lời mình); kid trống = bạn chưa ghi tên.
 const ART = [
@@ -976,7 +978,7 @@ const ART = [
   ['hai-dang-6725', 'hd', 'Bó hoa 20-10', 'Hải Đăng', 'Sáp dầu', 738, 1100, -.7, 'Một bó hoa vẽ tặng người con thương nhất.'],
   ['anh-hs-6740', 'x', 'Kỳ lân', '', 'Sáp dầu', 751, 1100, 1.1, 'Bờm hồng, tim hồng, cả khu vườn cũng hồng theo.']
 ].map(([id, cat, title, kid, medium, w, h, r, note]) => ({ id, cat, title, kid, medium, r, note, full: note,
-  by: kid ? 'bé ' + kid : 'một họa sĩ nhí của xưởng', svg: photo('img/tranh/' + id + '.webp', w, h, title) }));
+  by: kid ? 'bé ' + kid : 'một họa sĩ nhí của xưởng', svg: photo(`img/${SM ? 'tranh-sm' : 'tranh'}/` + id + '.webp', w, h, title) }));
 
 const FOUNDER_ART = [
   { title: 'Bình hoa tháng Ba', medium: 'Sơn dầu trên toan', r: -1.5,
@@ -1026,7 +1028,7 @@ $('#heroPolaroid').innerHTML = ART[1].svg.replaceAll('pm-', 'ph-');
 $('#heroCap').textContent = `${ART[1].title} — ${ART[1].kid}`;
 // dải ảnh các bé cầm tranh: lặp 2 lần để chạy vòng liền mạch
 $('#proudTrack').innerHTML = (ART.map((a, i) => `<figure class="shrink-0 w-44 sm:w-52 bg-canvas-cream p-2 pb-3 border-[1.5px] border-espresso-ink/70 shadow-warm" style="rotate:${[-2, 1.5, -1, 2.2, -1.6][i % 5]}deg">
-    <img src="img/be/${a.id}.webp" alt="${a.kid ? 'Bé ' + a.kid : 'Một họa sĩ nhí'} với bức “${a.title}”" loading="lazy" width="750" height="1000" class="block w-full aspect-[3/4] object-cover">
+    <img src="img/${SM ? 'be-sm' : 'be'}/${a.id}.webp" alt="${a.kid ? 'Bé ' + a.kid : 'Một họa sĩ nhí'} với bức “${a.title}”" loading="lazy" width="750" height="1000" class="block w-full aspect-[3/4] object-cover">
     <figcaption class="font-hand text-[12.5px] text-center mt-2">${a.kid || 'Họa sĩ nhí'}</figcaption></figure>`).join('')).repeat(2);
 $('.eworld').insertAdjacentHTML('beforeend', ART.slice(0, 5).map((a, i) => `
   <div class="eframe" style="--x:${i % 2 ? 310 : -310}px; --z:${-260 - i * 430}px; --ry:${i % 2 ? -30 : 30}deg">${a.svg.replaceAll('pm-', 'pe-')}<b>${a.title}</b><small>${a.by}</small></div>`).join(''));
@@ -1288,7 +1290,9 @@ if (!REDUCED) {
   $$('.eyebrow, main section p, blockquote, #postForm, #bookForm, main article, main figure, .art, #studio .grid > div, #filters, #founder ul, footer .grid > *')
     .forEach(el => { if (!el.closest('#collage') && !el.parentElement.closest('[data-reveal]')) el.dataset.reveal = ''; });
   document.documentElement.classList.add('js');
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+  // tô xong thì gỡ mask nét cọ: mask SVG giữ bộ đệm ảnh lớn cho mỗi bức, rất tốn bộ nhớ trên điện thoại
+  const dropMasks = el => { const pm = $$('.pm', el).pop(); pm && pm.addEventListener('transitionend', () => $$('[mask]', el).forEach(m => m.removeAttribute('mask')), { once: true }); };
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); dropMasks(e.target); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
   opened.then(() => $$('[data-reveal], h1, h2, .acc, #mark, #collage').forEach(el => io.observe(el)));
   const enter = $('#enter'), lim01 = v => Math.max(0, Math.min(1, v));
   // nét sơn dọc trang + cây cọ bay ở đầu nét
