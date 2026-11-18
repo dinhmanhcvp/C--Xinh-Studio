@@ -110,18 +110,6 @@ tailwind.config = { theme: { extend: {
   .edoor::after { content: ""; position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; background: #FFC857; border: 1.5px solid var(--ink); }
   .edoor.l::after { right: 34px; } .edoor.r::after { left: 34px; }
   .ehint { position: absolute; left: 0; right: 0; bottom: 5vh; text-align: center; opacity: calc(1 - var(--d, 0) * 3); }
-  /* hành lang trên điện thoại: tranh nhỏ hơn, hai dãy khép lại gần nhau */
-  @media (max-width: 767px) {
-    #enter { height: 260vh; }
-    .estage { height: calc(100svh - 72px); perspective: 700px; }
-    .eframe { --xs: .42; width: 150px; margin: -110px 0 0 -75px; padding: 7px 7px 6px; will-change: auto; }
-    /* sàn 3D (300% x 3400px) quá nặng cho bộ nhớ điện thoại → vẽ sàn phẳng bằng nền */
-    .efloor { display: none; }
-    .estage { background: linear-gradient(transparent 80%, #E2B98A 80%, #D4A877), radial-gradient(ellipse at 50% 35%, #FFF6E2, #F6DDBB 70%, #E9C59C); }
-    .eframe b { font-size: 13px; } .eframe small { font-size: 10px; }
-    .esign { width: 62vw; margin: -120px 0 0 -31vw; }
-    .esign .text-6xl { font-size: 1.75rem; }
-  }
   /* máy cảm ứng: tắt bớt hiệu ứng nặng chạy liên tục */
   @media (hover: none) {
     .splat { animation: none; }
@@ -1358,7 +1346,9 @@ if (!REDUCED) {
     if (y < vh * 1.5) pars.forEach(el => el.style.translate = `0 ${y * el.dataset.par}px`); };
   addEventListener('scroll', () => { if (!tick) { tick = true; requestAnimationFrame(onScroll); } }, { passive: true });
   const pinMq = matchMedia('(min-width: 768px) and (min-height: 620px)');
-  const layoutPin = () => { hpin.classList.toggle('pinned', pinMq.matches); enter.hidden = REDUCED; persp = parseFloat(getComputedStyle($('.estage')).perspective) || 1100; track.style.transform = ''; figs.forEach(f => f.style.scale = f.style.opacity = '');
+  // hành lang 3D chỉ bật trên máy tính: điện thoại/máy tính bảng cảm ứng hết bộ nhớ GPU, tự tải lại rồi crash
+  const no3d = matchMedia('(hover: none), (max-width: 767px)');
+  const layoutPin = () => { hpin.classList.toggle('pinned', pinMq.matches); enter.hidden = REDUCED || no3d.matches; persp = parseFloat(getComputedStyle($('.estage')).perspective) || 1100; track.style.transform = ''; figs.forEach(f => f.style.scale = f.style.opacity = '');
     pinDist = pinMq.matches ? Math.max(0, track.scrollWidth - innerWidth) : 0;
     figX = figs.map(f => { const r = f.getBoundingClientRect(); return r.left + r.width / 2; });   // đo một lần, lúc chưa trượt
     hpin.style.height = pinDist ? `calc(100vh - 72px + ${pinDist}px)` : ''; onScroll(); };
