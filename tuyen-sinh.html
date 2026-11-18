@@ -1328,7 +1328,8 @@ if (!REDUCED) {
   // thanh tiến độ + nét phác thảo + parallax hero + ghim cuộn ngang tranh của cô
   const pars = $$('[data-par]'), prog = $('#prog'), sketch = $('#sketch'), hpin = $('#hpin'), track = $('#founderWorks'), grid = $('#grid');
   let tick = false, pinDist = 0;
-  let skQ = -1, tipI = -1, figX = [];
+  let skQ = -1, tipI = -1, figX = [], persp = 1100;
+  const eframes = $$('.eframe'), efz = eframes.map(f => parseFloat(f.style.getPropertyValue('--z')));
   // đọc hết vị trí trước rồi mới ghi: tránh ép trình duyệt tính lại bố cục nhiều lần trong một khung hình
   const onScroll = () => { tick = false; const y = scrollY, vh = innerHeight, p = y / (root.scrollHeight - vh);
     const er = enter.hidden ? null : enter.getBoundingClientRect(), sr = scrub.getBoundingClientRect(),
@@ -1336,7 +1337,9 @@ if (!REDUCED) {
     prog.style.scale = p + ' 1';
     const q = Math.round(p * 300); if (q !== skQ) { skQ = q; sketch.style.setProperty('--p', .1 + .9 * q / 300); }   // lưới phác: vẽ lại theo nấc, không phải mỗi khung
     if (er && er.top < vh && er.bottom > 0) { const ep = lim01((72 - er.top) / (er.height - vh + 72));
-      enter.style.setProperty('--d', lim01(ep / .3)); enter.style.setProperty('--e', lim01((ep - .18) / .82)); }
+      const e = lim01((ep - .18) / .82); enter.style.setProperty('--d', lim01(ep / .3)); enter.style.setProperty('--e', e);
+      // tranh sắp chạm mặt phẳng phối cảnh thì ẩn: gần đó tranh bị phóng to vô hạn, điện thoại hết bộ nhớ GPU và tự tải lại/crash
+      eframes.forEach((f, i) => { const off = efz[i] + e * 2050 > persp - 160; if (f.hidden !== off) f.hidden = off; }); }
     // cây cọ: tìm điểm trên nét sơn ngang tầm 55% màn hình (đường đi chỉ đi xuống nên tìm nhị phân theo y)
     if (tLen) { const ty = y + vh * .55 - mTop; let lo = 0, hi = tLen;
       for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; tp.getPointAtLength(m).y < ty ? lo = m : hi = m; }
@@ -1355,7 +1358,7 @@ if (!REDUCED) {
     if (y < vh * 1.5) pars.forEach(el => el.style.translate = `0 ${y * el.dataset.par}px`); };
   addEventListener('scroll', () => { if (!tick) { tick = true; requestAnimationFrame(onScroll); } }, { passive: true });
   const pinMq = matchMedia('(min-width: 768px) and (min-height: 620px)');
-  const layoutPin = () => { hpin.classList.toggle('pinned', pinMq.matches); enter.hidden = REDUCED; track.style.transform = ''; figs.forEach(f => f.style.scale = f.style.opacity = '');
+  const layoutPin = () => { hpin.classList.toggle('pinned', pinMq.matches); enter.hidden = REDUCED; persp = parseFloat(getComputedStyle($('.estage')).perspective) || 1100; track.style.transform = ''; figs.forEach(f => f.style.scale = f.style.opacity = '');
     pinDist = pinMq.matches ? Math.max(0, track.scrollWidth - innerWidth) : 0;
     figX = figs.map(f => { const r = f.getBoundingClientRect(); return r.left + r.width / 2; });   // đo một lần, lúc chưa trượt
     hpin.style.height = pinDist ? `calc(100vh - 72px + ${pinDist}px)` : ''; onScroll(); };
