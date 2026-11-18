@@ -114,15 +114,18 @@ tailwind.config = { theme: { extend: {
   @media (max-width: 767px) {
     #enter { height: 260vh; }
     .estage { height: calc(100svh - 72px); perspective: 700px; }
-    .eframe { --xs: .42; width: 150px; margin: -110px 0 0 -75px; padding: 7px 7px 6px; }
+    .eframe { --xs: .42; width: 150px; margin: -110px 0 0 -75px; padding: 7px 7px 6px; will-change: auto; }
+    /* sàn 3D (300% x 3400px) quá nặng cho bộ nhớ điện thoại → vẽ sàn phẳng bằng nền */
+    .efloor { display: none; }
+    .estage { background: linear-gradient(transparent 80%, #E2B98A 80%, #D4A877), radial-gradient(ellipse at 50% 35%, #FFF6E2, #F6DDBB 70%, #E9C59C); }
     .eframe b { font-size: 13px; } .eframe small { font-size: 10px; }
     .esign { width: 62vw; margin: -120px 0 0 -31vw; }
     .esign .text-6xl { font-size: 1.75rem; }
   }
   /* máy cảm ứng: tắt bớt hiệu ứng nặng chạy liên tục */
   @media (hover: none) {
-    .blob, .splat { animation: none; }
-    .blob { filter: blur(60px); }
+    .splat { animation: none; }
+    .blob { display: none; }   /* mảng loang blur lớn ngốn bộ nhớ GPU, điện thoại dễ tự tải lại trang */
     .grain { mix-blend-mode: normal; }
     body > header.backdrop-blur { backdrop-filter: none; -webkit-backdrop-filter: none; }
   }
@@ -130,7 +133,7 @@ tailwind.config = { theme: { extend: {
   /* cây cọ bay theo bước cuộn, để lại một nét sơn uốn lượn dọc trang; nét quẹt ngang mở đầu mỗi khu */
   #trail { position: absolute; left: 0; top: 0; width: 100%; z-index: -3; pointer-events: none; overflow: visible; opacity: .8; }
   #trail path { fill: none; stroke: url(#trailG); stroke-width: clamp(10px, 1.7vw, 24px); stroke-linecap: round; }
-  #brush { position: fixed; left: -96px; top: -18px; width: 99px; height: 36px; z-index: 34; pointer-events: none; opacity: 0;
+  #brush { position: absolute; will-change: transform; left: -96px; top: -18px; width: 99px; height: 36px; z-index: 34; pointer-events: none; opacity: 0;
     transform-origin: 96px 18px; transition: opacity .4s; filter: drop-shadow(0 6px 6px rgba(46, 31, 33, .25)); }
   .swipe { position: absolute; left: 0; top: 6px; width: 100%; height: 44px; pointer-events: none; opacity: .85; }
   .js .swipe .draw { transition-duration: 1.5s; }
@@ -1304,7 +1307,7 @@ if (!REDUCED) {
   const main = $('main'); main.style.position = 'relative';
   main.insertAdjacentHTML('afterbegin', `<svg id="trail" aria-hidden="true"><defs><linearGradient id="trailG" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0">${
     [...PAL, ...PAL].map((c, i) => `<stop offset="${i / 9}" stop-color="${c}"/>`).join('')}</linearGradient></defs><path/></svg>`);
-  document.body.insertAdjacentHTML('beforeend', `<svg id="brush" viewBox="-64 -12 66 24" aria-hidden="true" stroke="#2E1F21" stroke-width="1">
+  main.insertAdjacentHTML('beforeend', `<svg id="brush" viewBox="-64 -12 66 24" aria-hidden="true" stroke="#2E1F21" stroke-width="1">
     <path d="M-25-4.5L-62-2.5v5L-25 4.5z" fill="#FFC857"/><rect x="-25" y="-6" width="9" height="12" fill="#D8CFCA"/>
     <path d="M0 0C-6-7.500-12-7.500-16-6v12C-12 7.500-6 7.500 0 0z" style="fill:var(--tip, #FF9197)"/></svg>`);
   const trail = $('#trail'), tp = $('path', trail), brush = $('#brush'); let tLen = 0;
@@ -1325,31 +1328,36 @@ if (!REDUCED) {
   // thanh tiến độ + nét phác thảo + parallax hero + ghim cuộn ngang tranh của cô
   const pars = $$('[data-par]'), prog = $('#prog'), sketch = $('#sketch'), hpin = $('#hpin'), track = $('#founderWorks'), grid = $('#grid');
   let tick = false, pinDist = 0;
-  const onScroll = () => { tick = false; const y = scrollY, p = y / (root.scrollHeight - innerHeight);
-    prog.style.scale = p + ' 1'; sketch.style.setProperty('--p', .1 + .9 * p);
-    if (!enter.hidden) { const er = enter.getBoundingClientRect();
-      if (er.top < innerHeight && er.bottom > 0) { const ep = lim01((72 - er.top) / (er.height - innerHeight + 72));
-        enter.style.setProperty('--d', lim01(ep / .3)); enter.style.setProperty('--e', lim01((ep - .18) / .82)); } }
+  let skQ = -1, tipI = -1, figX = [];
+  // đọc hết vị trí trước rồi mới ghi: tránh ép trình duyệt tính lại bố cục nhiều lần trong một khung hình
+  const onScroll = () => { tick = false; const y = scrollY, vh = innerHeight, p = y / (root.scrollHeight - vh);
+    const er = enter.hidden ? null : enter.getBoundingClientRect(), sr = scrub.getBoundingClientRect(),
+      hTop = pinDist ? hpin.getBoundingClientRect().top : 0, mTop = main.offsetTop;
+    prog.style.scale = p + ' 1';
+    const q = Math.round(p * 300); if (q !== skQ) { skQ = q; sketch.style.setProperty('--p', .1 + .9 * q / 300); }   // lưới phác: vẽ lại theo nấc, không phải mỗi khung
+    if (er && er.top < vh && er.bottom > 0) { const ep = lim01((72 - er.top) / (er.height - vh + 72));
+      enter.style.setProperty('--d', lim01(ep / .3)); enter.style.setProperty('--e', lim01((ep - .18) / .82)); }
     // cây cọ: tìm điểm trên nét sơn ngang tầm 55% màn hình (đường đi chỉ đi xuống nên tìm nhị phân theo y)
-    if (tLen) { const ty = y + innerHeight * .55 - main.offsetTop; let lo = 0, hi = tLen;
+    if (tLen) { const ty = y + vh * .55 - mTop; let lo = 0, hi = tLen;
       for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; tp.getPointAtLength(m).y < ty ? lo = m : hi = m; }
       const a = tp.getPointAtLength(lo), b = tp.getPointAtLength(Math.min(tLen, lo + 8));
       tp.style.strokeDashoffset = tLen - lo;
       brush.style.opacity = y > 60 && lo < tLen - 4 ? 1 : 0;   // đầu trang chưa cuộn thì cọ chưa xuất hiện, khỏi che tiêu đề
-      brush.style.setProperty('--tip', PAL[Math.round(lo / tLen * 9) % 5]);
-      brush.style.transform = `translate(${a.x}px, ${a.y + main.offsetTop - y}px) rotate(${Math.atan2(b.y - a.y, b.x - a.x) * 57.3}deg)`; }
-    const sr = scrub.getBoundingClientRect();
-    if (sr.top < innerHeight && sr.bottom > -innerHeight) { const k = (innerHeight * .88 - sr.top) / (innerHeight * .5) * scrubW.length;
+      const ti = Math.round(lo / tLen * 9) % 5; if (ti !== tipI) { tipI = ti; brush.style.setProperty('--tip', PAL[ti]); }
+      // cọ nằm trong <main> (cùng hệ toạ độ với nét sơn) nên tự trôi theo trang khi cuộn, không rung như khi ghim fixed
+      brush.style.transform = `translate(${a.x}px, ${a.y}px) rotate(${Math.atan2(b.y - a.y, b.x - a.x) * 57.3}deg)`; }
+    if (sr.top < vh && sr.bottom > -vh) { const k = (vh * .88 - sr.top) / (vh * .5) * scrubW.length;
       scrubW.forEach((w, i) => w.classList.toggle('on', i < k)); }
-    if (pinDist) { const dx = Math.min(pinDist, Math.max(0, 72 - hpin.getBoundingClientRect().top));
+    if (pinDist) { const dx = Math.min(pinDist, Math.max(0, 72 - hTop));
       track.style.transform = `translateX(${-dx}px)`; hpin.style.setProperty('--hp', dx / pinDist);
-      figs.forEach(f => { const r = f.getBoundingClientRect(), far = Math.min(1, Math.abs(r.left + r.width / 2 - innerWidth / 2) / innerWidth);
+      figs.forEach((f, i) => { const far = Math.min(1, Math.abs(figX[i] - dx - innerWidth / 2) / innerWidth);
         f.style.scale = 1 - far * .16; f.style.opacity = 1 - far * .55; }); }
-    if (y < innerHeight * 1.5) pars.forEach(el => el.style.translate = `0 ${y * el.dataset.par}px`); };
+    if (y < vh * 1.5) pars.forEach(el => el.style.translate = `0 ${y * el.dataset.par}px`); };
   addEventListener('scroll', () => { if (!tick) { tick = true; requestAnimationFrame(onScroll); } }, { passive: true });
   const pinMq = matchMedia('(min-width: 768px) and (min-height: 620px)');
   const layoutPin = () => { hpin.classList.toggle('pinned', pinMq.matches); enter.hidden = REDUCED; track.style.transform = ''; figs.forEach(f => f.style.scale = f.style.opacity = '');
     pinDist = pinMq.matches ? Math.max(0, track.scrollWidth - innerWidth) : 0;
+    figX = figs.map(f => { const r = f.getBoundingClientRect(); return r.left + r.width / 2; });   // đo một lần, lúc chưa trượt
     hpin.style.height = pinDist ? `calc(100vh - 72px + ${pinDist}px)` : ''; onScroll(); };
   addEventListener('resize', layoutPin); layoutPin();
   // đường đi của cây cọ: lượn trái–phải, mỗi nhịp dài 0,8 màn hình; đo lại mỗi khi chiều cao trang đổi (đổi Phase, lọc tranh…)
