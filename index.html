@@ -674,7 +674,9 @@ tailwind.config = { theme: { extend: {
           <label class="block font-round font-bold text-sm" for="parent">Ba / mẹ tên là</label>
           <input id="parent" name="parent" required maxlength="40" class="line-input" placeholder="vd: Mẹ An" autocomplete="off" autocapitalize="words" enterkeyhint="next">
           <label class="block font-round font-bold text-sm mt-5" for="child">Bé nhà mình (tên hoặc biệt danh)</label>
-          <input id="child" name="child" required maxlength="40" class="line-input" placeholder="vd: Bơ" autocomplete="off" autocapitalize="words" enterkeyhint="done">
+          <input id="child" name="child" required maxlength="40" class="line-input" placeholder="vd: Bơ" autocomplete="off" autocapitalize="words" enterkeyhint="next">
+          <label class="block font-round font-bold text-sm mt-5" for="phone">Zalo / SĐT <span class="font-body font-normal text-muted-cocoa">(không bắt buộc, để cô gửi lại ảnh tranh và tin lớp mới cho ba mẹ)</span></label>
+          <input id="phone" name="phone" type="tel" inputmode="tel" maxlength="16" pattern="(0|\+84)[0-9 .]{9,12}" title="Số điện thoại bắt đầu bằng 0 hoặc +84" class="line-input" autocomplete="tel" placeholder="09xx xxx xxx" enterkeyhint="done">
           <label class="block font-round font-bold text-sm mt-5" for="about">Viết về</label>
           <select id="about" name="about" class="line-input cursor-pointer"><option value="">Cả hành trình học vẽ của con</option></select>
           <button class="btn btn-coral magnetic mt-8 w-full justify-center">Gửi vào Sổ Lưu Niệm Studio <span aria-hidden="true">✉</span></button>
@@ -1102,7 +1104,7 @@ if (CONFIG.sheetUrl) {
 
 const postForm = $('#postForm');
 const readPost = () => { const fd = new FormData(postForm);
-  return { parent: fd.get('parent').trim(), child: fd.get('child').trim(), about: fd.get('about'), msg: fd.get('msg').trim(), stamps: fd.getAll('stamp') }; };
+  return { parent: fd.get('parent').trim(), child: fd.get('child').trim(), phone: (fd.get('phone') || '').trim(), about: fd.get('about'), msg: fd.get('msg').trim(), stamps: fd.getAll('stamp') }; };
 const renderPreview = () => { const f = readPost(); f.msg ||= 'Lời nhắn của ba mẹ sẽ hiện ở đây…'; $('#preview').replaceChildren(postcardEl(f, 1)); };
 // nút nổi tự ẩn khi tấm thiệp đã ở trên màn hình, để không che nút Gửi
 new IntersectionObserver(([en]) => $('#quickPost').classList.toggle('!hidden', en.isIntersecting)).observe($('#builder'));
@@ -1233,11 +1235,19 @@ function bookSummary() {
 }
 bookForm.addEventListener('change', bookSummary);
 $('#programs').addEventListener('click', e => { const b = e.target.closest('[data-age]'); if (b) pickAge(b.dataset.age); });
+// đăng ký học thử -> Google Sheet (tab KhachHang). Rớt mạng thì giữ trên máy và gửi lại lần mở trang sau.
+const readTrials = () => { try { return JSON.parse(localStorage.getItem('coxinh_hocthu')) || []; } catch { return []; } };
+const sendLead = b => fetch(CONFIG.sheetUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+  body: JSON.stringify({ type: 'lead', id: b.id, name: b.name, phone: b.phone, age: b.age, slot: b.slot }) })
+  .then(r => r.json()).then(j => { if (!j.ok) throw new Error('sheet từ chối'); b.sent = true; });
+if (CONFIG.sheetUrl) { const t = readTrials(); t.filter(b => b.id && !b.sent).forEach(b => sendLead(b).then(() => store('coxinh_hocthu', t)).catch(() => {})); }
 bookForm.addEventListener('submit', e => {
   e.preventDefault();
   const b = Object.fromEntries(new FormData(bookForm)); b.at = new Date().toISOString();
-  let all = []; try { all = JSON.parse(localStorage.getItem('coxinh_hocthu')) || []; } catch {}
-  store('coxinh_hocthu', [...all, b]);
+  b.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const all = [...readTrials(), b];
+  store('coxinh_hocthu', all);
+  if (CONFIG.sheetUrl) sendLead(b).then(() => store('coxinh_hocthu', all)).catch(() => {});
   $('#bookedMsg').textContent = `Cảm ơn ${b.name.trim()}. Cô giữ một chỗ cho bé ${b.age} tuổi vào ${b.slot}, và sẽ nhắn Zalo số ${b.phone} để chốt giờ cụ thể nhé.`;
   splash(e.submitter || bookForm);
   bookForm.hidden = true; $('#booked').hidden = false; replay($('#booked'));
